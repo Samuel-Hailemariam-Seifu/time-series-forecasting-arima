@@ -6,6 +6,7 @@ This project provides a practical ARIMA forecasting pipeline with:
 - automatic ARIMA `(p, d, q)` selection by AIC
 - holdout test evaluation (MAE, RMSE, MAPE)
 - future forecasting and CSV export
+- Streamlit UI for interactive forecasting
 
 ## 1) Install
 
@@ -30,6 +31,16 @@ date,value
 ```
 
 ## 3) Run forecasting
+
+### Option A: Web UI (recommended)
+
+```bash
+streamlit run app.py
+```
+
+Then upload your CSV, adjust settings, run forecast, and download results.
+
+### Option B: CLI
 
 ```bash
 python arima_forecast.py --input your_data.csv --date-col date --value-col value --test-size 12 --forecast-steps 12

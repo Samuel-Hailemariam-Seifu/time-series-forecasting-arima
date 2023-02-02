@@ -151,22 +151,16 @@ def evaluate(test: pd.Series, predicted: pd.Series) -> dict:
     return {"mae": float(mae), "rmse": float(rmse), "mape": float(mape)}
 
 
-def main() -> None:
-    args = parse_args()
-    input_path = Path(args.input)
-
-    if not input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {input_path}")
-
-    series = load_series(
-        csv_path=input_path,
-        date_col=args.date_col,
-        value_col=args.value_col,
-        freq=args.freq,
-    )
-
-    train, test = train_test_split(series, args.test_size)
-    best_order = select_best_order(train, args.max_p, args.max_d, args.max_q)
+def run_forecast_pipeline(
+    series: pd.Series,
+    test_size: int,
+    forecast_steps: int,
+    max_p: int,
+    max_d: int,
+    max_q: int,
+) -> tuple[tuple[int, int, int], dict, pd.DataFrame]:
+    train, test = train_test_split(series, test_size)
+    best_order = select_best_order(train, max_p, max_d, max_q)
 
     model = ARIMA(train, order=best_order)
     fitted = model.fit()
@@ -177,7 +171,7 @@ def main() -> None:
 
     # Retrain on full series for future forecasting.
     final_model = ARIMA(series, order=best_order).fit()
-    future_forecast = final_model.forecast(steps=args.forecast_steps)
+    future_forecast = final_model.forecast(steps=forecast_steps)
 
     out_df_test = pd.DataFrame(
         {
@@ -196,10 +190,35 @@ def main() -> None:
         }
     )
     out_df = pd.concat([out_df_test, out_df_future], ignore_index=True)
+    return best_order, metrics, out_df
+
+
+def main() -> None:
+    args = parse_args()
+    input_path = Path(args.input)
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+
+    series = load_series(
+        csv_path=input_path,
+        date_col=args.date_col,
+        value_col=args.value_col,
+        freq=args.freq,
+    )
+
+    best_order, metrics, out_df = run_forecast_pipeline(
+        series=series,
+        test_size=args.test_size,
+        forecast_steps=args.forecast_steps,
+        max_p=args.max_p,
+        max_d=args.max_d,
+        max_q=args.max_q,
+    )
     out_df.to_csv(args.output, index=False)
 
     print(f"Loaded observations: {len(series)}")
-    print(f"Train size: {len(train)} | Test size: {len(test)}")
+    print(f"Train size: {len(series) - args.test_size} | Test size: {args.test_size}")
     print(f"Selected ARIMA order: {best_order}")
     print(
         f"Test metrics -> MAE: {metrics['mae']:.4f}, RMSE: {metrics['rmse']:.4f}, "
